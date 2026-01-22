@@ -1,0 +1,45 @@
+# OKX Exchange Configuration
+# OKX交易所专用配置
+
+name: "OKX"
+
+# API端点
+endpoints:
+  mainnet: "https://www.okx.com"
+  testnet: "https://www.okx.com"  # OKX模拟盘使用同一域名
+
+# 支持的交易对
+symbols:
+  perpetual:
+    - "BTC-USDT-SWAP"
+    - "ETH-USDT-SWAP"
+    - "SOL-USDT-SWAP"
+    - "XRP-USDT-SWAP"
+
+# 合约规格
+contracts:
+  "BTC-USDT-SWAP":
+    tick_size: 0.1        # 价格精度
+    lot_size: 0.001       # 数量精度
+    min_notional: 10      # 最小名义价值
+    contract_value: 0.01  # 1张 = 0.01 BTC
+
+  "ETH-USDT-SWAP":
+    tick_size: 0.01
+    lot_size: 0.001
+    min_notional: 10
+    contract_value: 0.1   # 1张 = 0.1 ETH
+
+# API限制
+rate_limits:
+  public:
+    requests_per_second: 20
+  private:
+    requests_per_second: 10
+  orders:
+    requests_per_second: 60
+
+# 资金费率
+funding:
+  settlement_hours: [0, 8, 16]  # UTC时间
+  settlement_interval: 8       # 每8小时结算

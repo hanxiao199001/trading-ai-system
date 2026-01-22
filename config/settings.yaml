@@ -1,0 +1,82 @@
+# Trading AI System Configuration
+# 量化交易系统配置文件
+
+# ============ 系统设置 ============
+system:
+  name: "Trading AI System"
+  version: "1.0.0"
+  log_level: "INFO"
+  data_dir: "./data"
+
+# ============ 交易所设置 ============
+exchanges:
+  okx:
+    enabled: true
+    testnet: true  # 先使用模拟盘
+    # API凭证应通过环境变量配置，不要写在这里
+    # OKX_API_KEY, OKX_API_SECRET, OKX_PASSPHRASE
+
+  binance:
+    enabled: false
+    testnet: true
+    # BINANCE_API_KEY, BINANCE_API_SECRET
+
+# ============ 风控设置 ============
+# 来自原okx-funding-bot的风控参数
+risk:
+  stop_loss_pct: 0.02        # 止损: 2%
+  take_profit_pct: 0.015     # 止盈: 1.5%
+  position_size_pct: 0.30    # 单笔仓位: 30%
+  max_leverage: 1            # 最大杠杆: 1x (保守)
+  max_positions: 3           # 最大同时持仓数
+  daily_loss_limit_pct: 0.05 # 每日最大亏损: 5%
+  min_order_value: 10.0      # 最小订单价值: 10 USDT
+
+# ============ 策略设置 ============
+strategies:
+  funding_rate:
+    enabled: true
+    symbols:
+      - "BTC-USDT-SWAP"
+      - "ETH-USDT-SWAP"
+    # 来自原项目的策略参数
+    params:
+      short_threshold: 0.005    # 0.5% - 做空阈值
+      long_threshold: -0.003    # -0.3% - 做多阈值
+      exit_threshold: 0.001     # 0.1% - 费率回归平仓
+      price_profit_exit: 0.01   # 1% - 价格盈利平仓
+
+# ============ 数据设置 ============
+data:
+  # 数据采集间隔（秒）
+  fetch_interval: 300  # 5分钟
+
+  # 历史数据保留天数
+  retention_days: 90
+
+  # 数据库
+  database:
+    type: "sqlite"  # sqlite, postgresql
+    path: "./data/trading.db"
+
+# ============ 监控设置 ============
+monitoring:
+  # 仪表盘
+  dashboard:
+    enabled: true
+    host: "127.0.0.1"
+    port: 8080
+
+  # 告警
+  alerts:
+    enabled: true
+    # 告警方式: console, email, telegram
+    channels:
+      - "console"
+
+# ============ 回测设置 ============
+backtest:
+  # 默认回测参数
+  initial_capital: 1000.0
+  fee_rate: 0.0005  # 0.05% 手续费
+  slippage: 0.001   # 0.1% 滑点
