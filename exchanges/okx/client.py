@@ -244,6 +244,111 @@ class OKXExchange(ExchangeBase):
 
         return []
 
+
+    async def get_klines(
+        self,
+        symbol: str,
+        interval: str = "1H",
+        limit: int = 100,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        获取历史K线数据
+        
+        Args:
+            symbol: 交易对 (如 BTC-USDT-SWAP)
+            interval: K线周期 (1m/5m/15m/1H/4H/1D等)
+            limit: 数量限制 (最大100)
+            start_time: 开始时间
+            end_time: 结束时间
+        
+        Returns:
+            K线数据列表
+        """
+        inst_id = self.denormalize_symbol(symbol)
+        params = {
+            "instId": inst_id,
+            "bar": interval,
+            "limit": str(min(limit, 100))
+        }
+        
+        if end_time:
+            params["after"] = str(int(end_time.timestamp() * 1000))
+        if start_time:
+            params["before"] = str(int(start_time.timestamp() * 1000))
+        
+        data = await self._request(
+            "GET",
+            "/api/v5/market/candles",
+            params=params
+        )
+        
+        if data.get("code") == "0":
+            klines = []
+            for item in data.get("data", []):
+                klines.append({
+                    "timestamp": datetime.fromtimestamp(int(item[0]) / 1000),
+                    "open": float(item[1]),
+                    "high": float(item[2]),
+                    "low": float(item[3]),
+                    "close": float(item[4]),
+                    "volume": float(item[5]),
+                })
+            return sorted(klines, key=lambda x: x["timestamp"])
+        
+        logger.error(f"获取K线失败: {data}")
+        return []
+
+    async def get_history_klines(
+        self,
+        symbol: str,
+        interval: str = "1H",
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        max_candles: int = 1000
+    ) -> List[Dict[str, Any]]:
+        """
+        获取大量历史K线 (自动分页)
+        
+        Args:
+            symbol: 交易对
+            interval: K线周期
+            start_time: 开始时间
+            end_time: 结束时间
+            max_candles: 最大K线数量
+        
+        Returns:
+            K线数据列表
+        """
+        all_klines = []
+        current_end = end_time or datetime.now()
+        
+        while len(all_klines) < max_candles:
+            batch = await self.get_klines(
+                symbol=symbol,
+                interval=interval,
+                limit=100,
+                end_time=current_end
+            )
+            
+            if not batch:
+                break
+            
+            all_klines = batch + all_klines
+            
+            if start_time and batch[0]["timestamp"] <= start_time:
+                all_klines = [k for k in all_klines if k["timestamp"] >= start_time]
+                break
+            
+            current_end = batch[0]["timestamp"]
+            
+            import asyncio
+            await asyncio.sleep(0.1)
+        
+        logger.info(f"获取了 {len(all_klines)} 条K线数据")
+        return all_klines[:max_candles]
+
     # ============ 交易操作 ============
 
     async def place_order(self, order: Order) -> OrderResult:

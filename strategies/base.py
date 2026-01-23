@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 import logging
 
-from core.types import Signal, MarketData, Position, Fill, PositionSide
+from core.types import Signal, SignalData, MarketData, Position, PositionSide, OrderSide, Fill
 
 if TYPE_CHECKING:
     from risk.manager import RiskManager

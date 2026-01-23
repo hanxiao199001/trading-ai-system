@@ -10,6 +10,24 @@ import logging
 
 from core.types import Position, Signal, PositionSide
 from core.event_bus import EventBus, EventType, get_event_bus
+from decimal import Decimal
+
+
+@dataclass
+class RiskConfig:
+    """风控配置"""
+    max_position_size: Decimal = Decimal("0.3")
+    max_positions: int = 3
+    max_daily_loss: Decimal = Decimal("0.05")
+    max_leverage: Decimal = Decimal("3")
+
+
+@dataclass
+class RiskCheckResult:
+    """风控检查结果"""
+    approved: bool
+    reason: str = ""
+
 
 logger = logging.getLogger(__name__)
 
@@ -255,6 +273,32 @@ class RiskManager:
             del self._positions[symbol]
 
     # ============ 信号验证 ============
+
+    def check_signal(self, signal, total_value: float):
+        """
+        检查信号是否通过风控
+        
+        Args:
+            signal: 交易信号
+            total_value: 账户总价值
+        
+        Returns:
+            RiskCheckResult: 检查结果
+        """
+        # 检查交易是否启用
+        if not self._trading_enabled:
+            return RiskCheckResult(approved=False, reason="Trading disabled")
+        
+        # 检查是否可以开仓
+        if not self.can_open_position():
+            return RiskCheckResult(approved=False, reason="Max positions reached")
+        
+        # 检查每日亏损
+        if self._daily_pnl >= self.daily_loss_limit_pct * float(total_value):
+            return RiskCheckResult(approved=False, reason="Daily loss limit reached")
+        
+        return RiskCheckResult(approved=True, reason="OK")
+
 
     def validate_signal(
         self,
