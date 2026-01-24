@@ -26,3 +26,7 @@ config.json
 
 # 备份文件
 *.backup
+database/*.db
+database/*.db*
+backtest_*.html
+backtest_*.png
