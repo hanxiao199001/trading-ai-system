@@ -5,13 +5,19 @@ Trading AI System - Backtest Module
 
 from .engine import BacktestEngine
 from .metrics import PerformanceMetrics
-from .types import BacktestConfig, BacktestResult
+from .types import BacktestConfig, BacktestResult, BacktestMode
+from .data_loader import DataLoader, KlineData
+from .visualizer import BacktestVisualizer
 
 __all__ = [
     'BacktestEngine',
-    'PerformanceMetrics', 
+    'PerformanceMetrics',
     'BacktestConfig',
     'BacktestResult',
+    'BacktestMode',
+    'DataLoader',
+    'KlineData',
+    'BacktestVisualizer',
 ]
 
 __version__ = '1.0.0'
