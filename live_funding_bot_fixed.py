@@ -32,10 +32,14 @@ class FundingRateBot:
         })
         
         self.symbol = 'BTC/USDT:USDT'
-        self.funding_threshold = 0.003
-        self.take_profit = 0.015
-        self.stop_loss = 0.02
+        # 优化参数 - 与回测保持一致
+        self.funding_threshold = 0.0001  # 0.01% (原 0.3% 过高)
+        self.take_profit = 0.005         # 0.5% (原 1.5% 过大)
+        self.stop_loss = 0.008           # 0.8% (原 2.0% 过大)
         self.position_size = 0.001
+        
+        # 手续费计算 (OKX Taker)
+        self.taker_fee = 0.0005          # 0.05%
         
         self.position = None
         self.entry_price = 0
@@ -78,6 +82,28 @@ class FundingRateBot:
         except Exception as e:
             logging.error(f"获取余额失败: {e}")
             return None
+    
+    def get_volume_24h(self):
+        """获取24小时成交量"""
+        try:
+            ticker = self.exchange.fetch_ticker(self.symbol)
+            return float(ticker['quoteVolume'])  # USDT 计价成交量
+        except Exception as e:
+            logging.error(f"获取成交量失败: {e}")
+            return None
+    
+    def check_trade_feasibility(self, funding_rate):
+        """检查交易可行性（手续费+资金费率）"""
+        # 双边手续费成本
+        total_fee_cost = 2 * self.taker_fee  # 开仓+平仓
+        
+        # 资金费率需要覆盖手续费
+        net_profit_potential = funding_rate - total_fee_cost
+        
+        if net_profit_potential > 0:
+            return True, net_profit_potential
+        else:
+            return False, net_profit_potential
     
     def check_position(self):
         """检查当前持仓"""
@@ -141,13 +167,21 @@ class FundingRateBot:
                 params={'tdMode': 'cross'}
             )
             
-            pnl = (self.entry_price - current_price) / self.entry_price
+            # 计算收益（价格变动）
+            pnl_gross = (self.entry_price - current_price) / self.entry_price
+            
+            # 扣除手续费
+            total_fee_cost = 2 * self.taker_fee  # 开仓+平仓
+            pnl_net = pnl_gross - total_fee_cost
+            
             holding_time = (datetime.now() - self.entry_time).total_seconds() / 3600
             
             logging.info(f"✅ 平仓成功!")
             logging.info(f"入场价格: ${self.entry_price:.2f}")
             logging.info(f"出场价格: ${current_price:.2f}")
-            logging.info(f"收益率: {pnl * 100:.2f}%")
+            logging.info(f"毛收益率: {pnl_gross * 100:.2f}%")
+            logging.info(f"手续费成本: {total_fee_cost * 100:.2f}%")
+            logging.info(f"净收益率: {pnl_net * 100:.2f}%")
             logging.info(f"持仓时间: {holding_time:.2f} 小时")
             
             self.position = None
@@ -206,9 +240,27 @@ class FundingRateBot:
                 else:
                     logging.info("当前无持仓")
                     
+                    # 检查开仓条件
                     if funding_rate > self.funding_threshold:
-                        logging.info(f"⚡ 发现开仓机会! 资金费率 {funding_rate * 100:.4f}%")
-                        self.open_short(current_price)
+                        # 检查手续费可行性
+                        is_feasible, net_profit = self.check_trade_feasibility(funding_rate)
+                        
+                        if not is_feasible:
+                            logging.warning(f"❌ 资金费率 {funding_rate * 100:.4f}% 不足以覆盖手续费成本")
+                            logging.warning(f"   需要至少 {(2 * self.taker_fee) * 100:.4f}%，当前净收益预期: {net_profit * 100:.4f}%")
+                        else:
+                            # 检查24h成交量（确保流动性）
+                            volume_24h = self.get_volume_24h()
+                            min_volume = 100_000_000  # 最低1亿USDT日成交量
+                            
+                            if volume_24h and volume_24h < min_volume:
+                                logging.warning(f"❌ 成交量不足: ${volume_24h:,.0f} < ${min_volume:,.0f}")
+                            else:
+                                logging.info(f"✅ 发现开仓机会!")
+                                logging.info(f"   资金费率: {funding_rate * 100:.4f}%")
+                                logging.info(f"   预期净收益: {net_profit * 100:.4f}%")
+                                logging.info(f"   24h成交量: ${volume_24h:,.0f}")
+                                self.open_short(current_price)
                 
                 logging.info("-" * 80)
                 time.sleep(300)
