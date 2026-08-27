@@ -7,7 +7,12 @@ from .engine import BacktestEngine
 from .metrics import PerformanceMetrics
 from .types import BacktestConfig, BacktestResult, BacktestMode
 from .data_loader import DataLoader, KlineData
-from .visualizer import BacktestVisualizer
+
+# matplotlib 为可选依赖, 缺失时可视化功能不可用但不影响回测
+try:
+    from .visualizer import BacktestVisualizer
+except ImportError:  # pragma: no cover
+    BacktestVisualizer = None
 
 __all__ = [
     'BacktestEngine',
